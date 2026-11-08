@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+             (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 150)) &&
+             data.collegeId is string && data.collegeId.size() >= 2 && data.collegeId.size() <= 50 &&
+             data.isStudentVerified is bool &&
+             (!('avatarUrl' in data) || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 500)) &&
+             (!('rating' in data) || data.rating is number) &&
+             (!('ridesCount' in data) || data.ridesCount is int) &&
+             (!('ecoPoints' in data) || data.ecoPoints is int) &&
+             (!('role' in data) || (data.role is string && (data.role == 'rider' || data.role == 'driver' || data.role == 'both'))) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidRide(data) {
+      return data.userId is string &&
+             (!('riderId' in data) || data.riderId == null || (data.riderId is string && data.riderId.size() <= 128)) &&
+             data.riderName is string && data.riderName.size() >= 1 && data.riderName.size() <= 100 &&
+             (!('driverId' in data) || data.driverId == null || (data.driverId is string && data.driverId.size() <= 128)) &&
+             (!('driverName' in data) || data.driverName == null || (data.driverName is string && data.driverName.size() <= 100)) &&
+             (!('driverAvatar' in data) || data.driverAvatar == null || (data.driverAvatar is string && data.driverAvatar.size() <= 500)) &&
+             (!('vehicleType' in data) || data.vehicleType == null || (data.vehicleType is string && data.vehicleType.size() <= 60)) &&
+             (!('vehiclePlate' in data) || data.vehiclePlate == null || (data.vehiclePlate is string && data.vehiclePlate.size() <= 30)) &&
+             data.pickupLocation is string && data.pickupLocation.size() >= 1 && data.pickupLocation.size() <= 150 &&
+             data.dropLocation is string && data.dropLocation.size() >= 1 && data.dropLocation.size() <= 150 &&
+             data.fare is int && data.fare >= 0 && data.fare <= 5000 &&
+             (!('splitFare' in data) || data.splitFare is bool) &&
+             (!('splitCount' in data) || (data.splitCount is int && data.splitCount >= 1 && data.splitCount <= 10)) &&
+             data.otp is string && data.otp.size() >= 4 && data.otp.size() <= 6 &&
+             data.status is string && (data.status == 'requested' || data.status == 'accepted' || data.status == 'in_route' || data.status == 'completed' || data.status == 'cancelled') &&
+             (!('ecoSavedGrams' in data) || data.ecoSavedGrams is int) &&
+             (!('etaMinutes' in data) || data.etaMinutes is int) &&
+             (!('helmetVerified' in data) || data.helmetVerified is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    // 1. Users collection: user profiles
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() && isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'collegeId', 'isStudentVerified', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'collegeId', 'isStudentVerified', 'avatarUrl', 'rating', 'ridesCount', 'ecoPoints', 'role', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() && isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'collegeId', 'isStudentVerified', 'avatarUrl', 'rating', 'ridesCount', 'ecoPoints', 'role', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // 2. Rides collection: student campus mobility trips
+    match /rides/{rideId} {
+      allow get: if isSignedIn() && isValidId(rideId) &&
+                    (resource.data.userId == request.auth.uid ||
+                     (resource.data.riderId != null && resource.data.riderId == request.auth.uid) ||
+                     (resource.data.driverId != null && resource.data.driverId == request.auth.uid));
+
+      // Client queries MUST filter by whereEqualTo("userId", uid)
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() && isValidId(rideId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'riderName', 'pickupLocation', 'dropLocation', 'fare', 'status', 'otp', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'riderId', 'riderName', 'driverId', 'driverName', 'driverAvatar', 'vehicleType', 'vehiclePlate', 'pickupLocation', 'dropLocation', 'fare', 'splitFare', 'splitCount', 'otp', 'status', 'ecoSavedGrams', 'etaMinutes', 'helmetVerified', 'createdAt', 'updatedAt']) &&
+                       isValidRide(incoming());
+
+      allow update: if isSignedIn() && isValidId(rideId) &&
+                       (resource.data.userId == request.auth.uid ||
+                        (resource.data.driverId != null && resource.data.driverId == request.auth.uid)) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidRide(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['driverId', 'driverName', 'driverAvatar', 'vehicleType', 'vehiclePlate', 'status', 'etaMinutes', 'helmetVerified', 'splitFare', 'splitCount', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(rideId) && resource.data.userId == request.auth.uid;
+    }
+  }
+}

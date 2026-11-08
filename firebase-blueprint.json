@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Verified student profile with campus credentials, eco-points and rating",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "Student full name" },
+        "email": { "type": "string", "description": "Campus college email address" },
+        "collegeId": { "type": "string", "description": "Verified campus student ID card roll number" },
+        "isStudentVerified": { "type": "boolean", "description": "Official institutional verification status" },
+        "avatarUrl": { "type": "string", "description": "Profile avatar photo URL" },
+        "rating": { "type": "number", "description": "Peer ride rating out of 5.0" },
+        "ridesCount": { "type": "integer", "description": "Total completed campus rides" },
+        "ecoPoints": { "type": "integer", "description": "Earned carbon saving eco-vitality credits" },
+        "role": { "type": "string", "description": "Campus mobility role (rider, driver, both)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when profile was created via FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp when profile was last updated via FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "displayName", "collegeId", "isStudentVerified", "createdAt"]
+    },
+    "Ride": {
+      "title": "Ride",
+      "description": "Campus rideshare trip between student hostel and university department",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID of the student who initiated the ride" },
+        "riderId": { "type": "string", "description": "Student passenger UID" },
+        "riderName": { "type": "string", "description": "Student passenger name" },
+        "driverId": { "type": "string", "description": "Campus peer driver UID" },
+        "driverName": { "type": "string", "description": "Campus peer driver name" },
+        "driverAvatar": { "type": "string", "description": "Driver photo URL" },
+        "vehicleType": { "type": "string", "description": "Vehicle type: Electric Scooter, Campus Bike, E-Bicycle" },
+        "vehiclePlate": { "type": "string", "description": "Campus registered vehicle number or ID" },
+        "pickupLocation": { "type": "string", "description": "Hostel or campus pickup landmark" },
+        "dropLocation": { "type": "string", "description": "Department or campus destination landmark" },
+        "fare": { "type": "integer", "description": "Fare in campus credits or currency" },
+        "splitFare": { "type": "boolean", "description": "Whether split-fare is active" },
+        "splitCount": { "type": "integer", "description": "Number of peers splitting the fare" },
+        "otp": { "type": "string", "description": "4-digit verification code for driver matching" },
+        "status": { "type": "string", "description": "Ride status: requested, accepted, in_route, completed, cancelled" },
+        "ecoSavedGrams": { "type": "integer", "description": "CO2 grams saved compared to petrol motor" },
+        "etaMinutes": { "type": "integer", "description": "Estimated pickup or arrival ETA in minutes" },
+        "helmetVerified": { "type": "boolean", "description": "Safety indicator for helmet compliance" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when ride was booked via FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp when ride status changed via FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "riderName", "pickupLocation", "dropLocation", "fare", "status", "otp", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile with student status and rating"
+    },
+    "/rides/{rideId}": {
+      "schema": { "$ref": "#/entities/Ride" },
+      "description": "Peer-to-peer campus ride tracking"
+    }
+  }
+}

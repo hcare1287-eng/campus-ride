@@ -1,0 +1,6 @@
+{
+  "name": "Campus Velocity",
+  "description": "Peer-to-peer campus mobility with verified student badges, live tracking HUD, and eco-rides.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
