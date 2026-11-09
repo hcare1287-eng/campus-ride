@@ -25,6 +25,36 @@ import kotlinx.coroutines.withContext
 object AuthManager {
     private const val TAG = "AuthManager"
 
+    // Stores the phone number entered and verified by user so it is never lost
+    var lastVerifiedPhoneNumber: String? = null
+
+    fun signInWithVerifiedPhone(
+        phoneNumber: String,
+        onAuthSuccess: () -> Unit,
+        onNeedGoogleAuth: () -> Unit,
+        scope: CoroutineScope
+    ) {
+        lastVerifiedPhoneNumber = phoneNumber
+        scope.launch {
+            val sanitizedPhone = phoneNumber.filter { it.isDigit() }
+            val email = "phone_${sanitizedPhone}@campus.dbu.ac.in"
+            val password = "CampusStudentPass#$sanitizedPhone"
+
+            try {
+                Firebase.auth.signInWithEmailAndPassword(email, password).await()
+                onAuthSuccess()
+            } catch (e: Exception) {
+                try {
+                    Firebase.auth.createUserWithEmailAndPassword(email, password).await()
+                    onAuthSuccess()
+                } catch (createErr: Exception) {
+                    Log.d(TAG, "Email/password provider not active, prompting Google sign-in: ${createErr.message}")
+                    onNeedGoogleAuth()
+                }
+            }
+        }
+    }
+
     fun attemptAutoSignIn(
         context: Context,
         credentialManager: CredentialManager,

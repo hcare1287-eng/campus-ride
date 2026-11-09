@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,10 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.NotificationImportant
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -29,7 +32,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -49,16 +51,23 @@ import com.example.ui.theme.SignalRedError
 
 @Composable
 fun SosEmergencyDialog(
+    userLatitude: Double,
+    userLongitude: Double,
+    nearestLandmark: String,
+    studentName: String,
+    collegeId: String,
+    onBroadcastDistress: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val dbuEmergencyNumber = "+911765520520"
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
         dismissButton = {},
         shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Color.White,
         modifier = Modifier.testTag("sos_emergency_dialog"),
         text = {
             Column(
@@ -87,17 +96,16 @@ fun SosEmergencyDialog(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
-                    text = "EMERGENCY SAFETY HUD",
-                    style = MaterialTheme.typography.headlineMedium,
+                    text = "DBU EMERGENCY SAFETY HUD",
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = SignalRedError,
-                    letterSpacing = (-0.01).sp
+                    color = SignalRedError
                 )
 
                 Text(
                     text = "Immediate Campus Security & Peer Dispatch",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFF64748B)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -122,16 +130,22 @@ fun SosEmergencyDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(
-                                text = "Current Campus Telemetry",
+                                text = "Live DBU GPS Telemetry",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = SignalRedError,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "12.9915° N, 80.2337° E • Kaveri Hostel Road",
-                                style = MaterialTheme.typography.bodySmall,
+                                text = "%.4f° N, %.4f° E".format(userLatitude, userLongitude),
+                                style = MaterialTheme.typography.bodyMedium,
                                 fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
                                 color = DeepSlateTertiary
+                            )
+                            Text(
+                                text = nearestLandmark,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF475569)
                             )
                         }
                     }
@@ -139,14 +153,17 @@ fun SosEmergencyDialog(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Campus Security Hotline Button
+                // Real Campus Security Call Button (ACTION_DIAL)
                 Button(
                     onClick = {
-                        Toast.makeText(
-                            context,
-                            "Connecting to 24/7 Campus Security Control Room (+91-44-2257-8888)...",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        try {
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:$dbuEmergencyNumber")
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Cannot open dialer: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -161,7 +178,7 @@ fun SosEmergencyDialog(
                     Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Call Campus Security (1100)",
+                        text = "Call DBU Security (1100)",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -169,12 +186,49 @@ fun SosEmergencyDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Silent Alert Trigger Button
+                // Real SMS Dispatch Button (ACTION_SENDTO)
+                Button(
+                    onClick = {
+                        try {
+                            val smsText = "EMERGENCY SOS! DBU Student $studentName ($collegeId) requests urgent assistance near $nearestLandmark. GPS: %.4f, %.4f".format(userLatitude, userLongitude)
+                            val smsIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("smsto:$dbuEmergencyNumber")
+                                putExtra("sms_body", smsText)
+                            }
+                            context.startActivity(smsIntent)
+                            onBroadcastDistress()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Cannot send SMS: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("broadcast_sms_distress_button"),
+                    shape = RoundedCornerShape(9999.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFDC2626),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Send GPS Distress SMS",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Cloud Distress Beacon (Firestore Broadcast)
                 OutlinedButton(
                     onClick = {
+                        onBroadcastDistress()
                         Toast.makeText(
                             context,
-                            "Silent distress beacon & live GPS link sent to Roommates & Hostel Warden!",
+                            "Distress beacon & live GPS broadcasted to campus network!",
                             Toast.LENGTH_LONG
                         ).show()
                     },
@@ -188,13 +242,13 @@ fun SosEmergencyDialog(
                     Icon(Icons.Default.NotificationImportant, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Broadcast Distress Beacon",
+                        text = "Broadcast Cloud SOS Beacon",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Close Button
                 OutlinedButton(
@@ -204,7 +258,7 @@ fun SosEmergencyDialog(
                         .height(44.dp),
                     shape = RoundedCornerShape(9999.dp)
                 ) {
-                    Text("Close Safety Panel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Close Safety Panel", color = Color(0xFF64748B))
                 }
             }
         }

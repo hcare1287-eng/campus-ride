@@ -76,6 +76,13 @@ class CampusRideRepository(private val db: FirebaseFirestore) {
             "ridesCount" to profile.ridesCount,
             "ecoPoints" to profile.ecoPoints,
             "role" to profile.role,
+            "universityName" to profile.universityName,
+            "faculty" to profile.faculty,
+            "residency" to profile.residency,
+            "phoneNumber" to profile.phoneNumber,
+            "vehicleModel" to profile.vehicleModel,
+            "vehiclePlate" to profile.vehiclePlate,
+            "isProfileComplete" to profile.isProfileComplete,
             "updatedAt" to FieldValue.serverTimestamp()
         )
 
@@ -94,7 +101,7 @@ class CampusRideRepository(private val db: FirebaseFirestore) {
         }
     }
 
-    // Real-time observation of user's active campus rides
+    // Real-time observation of user's active campus rides as passenger
     fun observeUserRides(): Flow<List<Ride>> = flow {
         val uid = requireUserId()
         val path = "rides"
@@ -115,6 +122,44 @@ class CampusRideRepository(private val db: FirebaseFirestore) {
                         handleFirestoreError(exceptionToLog, OperationType.LIST, path)
                     }
                     throw error
+                }
+        )
+    }
+
+    // Real-time observation of open available ride requests for Peer Drivers
+    fun observeAvailableRides(): Flow<List<Ride>> = flow {
+        requireUserId()
+        val path = "rides"
+        emitAll(
+            db.collection("rides")
+                .whereEqualTo("status", "requested")
+                .snapshots()
+                .map { snapshot ->
+                    snapshot.toObjects(Ride::class.java).sortedByDescending { it.createdAt }
+                }
+                .catch { error ->
+                    val firestoreError = generateSequence(error) { it.cause }
+                        .filterIsInstance<FirebaseFirestoreException>()
+                        .firstOrNull()
+                    if (firestoreError == null && error is CancellationException) throw error
+                    emit(emptyList())
+                }
+        )
+    }
+
+    // Real-time observation of rides assigned to this peer driver
+    fun observeDriverAssignedRides(): Flow<List<Ride>> = flow {
+        val uid = requireUserId()
+        val path = "rides"
+        emitAll(
+            db.collection("rides")
+                .whereEqualTo("driverId", uid)
+                .snapshots()
+                .map { snapshot ->
+                    snapshot.toObjects(Ride::class.java).sortedByDescending { it.createdAt }
+                }
+                .catch { error ->
+                    emit(emptyList())
                 }
         )
     }
@@ -141,7 +186,50 @@ class CampusRideRepository(private val db: FirebaseFirestore) {
         }
     }
 
-    // Update ride state (e.g. peer driver accepted, in_route, or completed)
+    // Peer Driver claims an open ride request
+    suspend fun claimRide(
+        rideId: String,
+        driverId: String,
+        driverName: String,
+        vehiclePlate: String,
+        etaMinutes: Long
+    ): Result<Unit> {
+        require(rideId.isNotBlank()) { "Ride ID must not be blank" }
+        val docRef = db.collection("rides").document(rideId)
+
+        val updates = mutableMapOf<String, Any?>(
+            "status" to "accepted",
+            "driverId" to driverId,
+            "driverName" to driverName,
+            "vehiclePlate" to vehiclePlate,
+            "etaMinutes" to etaMinutes,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+
+        return try {
+            docRef.update(updates.filterValues { it != null }).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
+    // Verify OTP and transition to in_route
+    suspend fun verifyOtpAndStartRide(
+        rideId: String,
+        enteredOtp: String,
+        actualOtp: String
+    ): Result<Unit> {
+        if (enteredOtp.trim() != actualOtp.trim()) {
+            return Result.failure(IllegalArgumentException("Incorrect OTP ($enteredOtp). Please check the 4-digit OTP shown on the rider's screen."))
+        }
+        return updateRideStatus(rideId = rideId, newStatus = "in_route", etaMinutes = 2L)
+    }
+
+    // Update ride state (e.g. in_route or completed)
     suspend fun updateRideStatus(
         rideId: String,
         newStatus: String,
@@ -151,7 +239,6 @@ class CampusRideRepository(private val db: FirebaseFirestore) {
         etaMinutes: Long? = null
     ): Result<Unit> {
         require(rideId.isNotBlank()) { "Ride ID must not be blank" }
-        val uid = requireUserId()
         val docRef = db.collection("rides").document(rideId)
 
         val updates = mutableMapOf<String, Any?>(
@@ -177,5 +264,33 @@ class CampusRideRepository(private val db: FirebaseFirestore) {
     // Cancel a ride
     suspend fun cancelRide(rideId: String): Result<Unit> {
         return updateRideStatus(rideId = rideId, newStatus = "cancelled")
+    }
+
+    // Real SOS Emergency Alert Broadcast
+    suspend fun broadcastSosAlert(
+        studentName: String,
+        collegeId: String,
+        latitude: Double,
+        longitude: Double,
+        nearestLandmark: String
+    ): Result<String> {
+        val uid = requireUserId()
+        val docRef = db.collection("emergency_alerts").document()
+        val payload = mapOf(
+            "userId" to uid,
+            "studentName" to studentName,
+            "collegeId" to collegeId,
+            "latitude" to latitude,
+            "longitude" to longitude,
+            "nearestLandmark" to nearestLandmark,
+            "status" to "ACTIVE",
+            "createdAt" to FieldValue.serverTimestamp()
+        )
+        return try {
+            docRef.set(payload).await()
+            Result.success(docRef.id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

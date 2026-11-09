@@ -63,7 +63,7 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun CampusVelocityTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme

@@ -69,6 +69,7 @@ fun RideTrackingHud(
     onAdvanceRide: () -> Unit,
     onCancelRide: () -> Unit,
     onSosClicked: () -> Unit,
+    onOpenCaptain: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulseHud")
@@ -383,7 +384,13 @@ fun RideTrackingHud(
                 }
 
                 Button(
-                    onClick = onAdvanceRide,
+                    onClick = {
+                        if (ride.status == "requested") {
+                            onOpenCaptain()
+                        } else {
+                            onAdvanceRide()
+                        }
+                    },
                     shape = RoundedCornerShape(9999.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = SolarGoldPrimary,
@@ -397,7 +404,7 @@ fun RideTrackingHud(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = when (ride.status) {
-                                "requested" -> Icons.AutoMirrored.Filled.DirectionsRun
+                                "requested" -> Icons.Default.ElectricScooter
                                 "accepted" -> Icons.Default.PlayArrow
                                 else -> Icons.Default.CheckCircle
                             },
@@ -407,8 +414,8 @@ fun RideTrackingHud(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = when (ride.status) {
-                                "requested" -> "Simulate Match"
-                                "accepted" -> "Verify OTP & Start"
+                                "requested" -> "Open Captain App"
+                                "accepted" -> "Waiting for Captain"
                                 "in_route" -> "Complete Trip"
                                 else -> "Completed"
                             },

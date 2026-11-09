@@ -18,7 +18,14 @@ data class UserProfile(
     val rating: Double = 5.0,
     val ridesCount: Long = 0L,
     val ecoPoints: Long = 0L,
-    val role: String = "both",
+    val role: String = "passenger", // "passenger" or "driver"
+    val universityName: String = "Desh Bhagat University",
+    val faculty: String = "Faculty of Engineering & Technology",
+    val residency: String = "S. Lal Singh Boys Hostel",
+    val phoneNumber: String = "",
+    val vehicleModel: String = "",
+    val vehiclePlate: String = "",
+    val isProfileComplete: Boolean = false,
     @ServerTimestamp
     val createdAt: Timestamp? = null,
     @ServerTimestamp
@@ -35,7 +42,14 @@ data class UserProfile(
             "rating" to rating,
             "ridesCount" to ridesCount,
             "ecoPoints" to ecoPoints,
-            "role" to role
+            "role" to role,
+            "universityName" to universityName,
+            "faculty" to faculty,
+            "residency" to residency,
+            "phoneNumber" to phoneNumber,
+            "vehicleModel" to vehicleModel,
+            "vehiclePlate" to vehiclePlate,
+            "isProfileComplete" to isProfileComplete
         ).filterValues { it != null }
     }
 }

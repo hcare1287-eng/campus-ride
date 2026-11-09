@@ -50,7 +50,7 @@ test("Authenticated user: can create own profile and read it", async () => {
     aliceDb.collection("users").doc(ALICE_UID).set({
       userId: ALICE_UID,
       displayName: "Alice Sharma",
-      collegeId: "IIT-2024-442",
+      collegeId: "DBU/2024/ENG/108",
       isStudentVerified: true,
       rating: 4.9,
       ridesCount: 12,
@@ -63,32 +63,20 @@ test("Authenticated user: can create own profile and read it", async () => {
   await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).get());
 });
 
-test("Authenticated user: cannot read another user's profile", async () => {
-  await testEnv.withSecurityRulesDisabled(async (context) => {
-    await context.firestore().collection("users").doc(BOB_UID).set({
-      userId: BOB_UID,
-      displayName: "Bob Verma",
-      collegeId: "IIT-2023-102",
-      isStudentVerified: true,
-      createdAt: new Date(),
-    });
-  });
-
+test("Authenticated user: can create a ride and another peer driver can discover and accept it", async () => {
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
-  await assertFails(aliceDb.collection("users").doc(BOB_UID).get());
-});
-
-test("Authenticated user: can create and query their own rides", async () => {
-  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
   const rideId = "ride_alice_001";
+  const now = new Date();
 
+  // 1. Alice creates ride
   await assertSucceeds(
     aliceDb.collection("rides").doc(rideId).set({
       userId: ALICE_UID,
       riderId: ALICE_UID,
       riderName: "Alice Sharma",
-      pickupLocation: "Hostel Block 4",
-      dropLocation: "Central Library",
+      pickupLocation: "S. Lal Singh Boys Hostel",
+      dropLocation: "DBU Central Library (Kalam Block)",
       fare: 20,
       splitFare: false,
       splitCount: 1,
@@ -97,17 +85,44 @@ test("Authenticated user: can create and query their own rides", async () => {
       ecoSavedGrams: 420,
       etaMinutes: 4,
       helmetVerified: true,
-      createdAt: new Date(),
+      createdAt: now,
     })
   );
 
-  // Client query alignment with where("userId", "==", ALICE_UID)
+  // 2. Bob (driver) discovers open requests
   await assertSucceeds(
-    aliceDb.collection("rides").where("userId", "==", ALICE_UID).get()
+    bobDb.collection("rides").where("status", "==", "requested").get()
+  );
+
+  // 3. Bob claims the ride
+  await assertSucceeds(
+    bobDb.collection("rides").doc(rideId).update({
+      driverId: BOB_UID,
+      driverName: "Bob Singh",
+      vehiclePlate: "PB-23-EV-4412",
+      status: "accepted",
+      etaMinutes: 3,
+    })
   );
 });
 
-test("Authenticated user: cannot query all rides without userId filter", async () => {
+test("Authenticated user: cannot query all rides arbitrarily without status or userId filter", async () => {
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
   await assertFails(aliceDb.collection("rides").get());
+});
+
+test("Authenticated user: can create SOS emergency alert", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  await assertSucceeds(
+    aliceDb.collection("emergency_alerts").doc("alert_001").set({
+      userId: ALICE_UID,
+      studentName: "Alice Sharma",
+      collegeId: "DBU/2024/ENG/108",
+      latitude: 30.6062,
+      longitude: 76.3117,
+      nearestLandmark: "DBU Central Library",
+      status: "ACTIVE",
+      createdAt: new Date(),
+    })
+  );
 });

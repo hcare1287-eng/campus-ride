@@ -18,15 +18,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ElectricBike
+import androidx.compose.material.icons.filled.ElectricRickshaw
 import androidx.compose.material.icons.filled.ElectricScooter
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.LocalTaxi
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PedalBike
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -36,9 +38,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -63,8 +64,6 @@ fun RideBookingSheet(
     sheetState: SheetState,
     pickupLocation: String,
     dropLocation: String,
-    onPickupChanged: (String) -> Unit,
-    onDropChanged: (String) -> Unit,
     selectedVehicle: VehicleOption,
     onVehicleSelected: (VehicleOption) -> Unit,
     splitFare: Boolean,
@@ -77,89 +76,66 @@ fun RideBookingSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-        containerColor = MaterialTheme.colorScheme.surface
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = Color.White
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .padding(horizontal = 20.dp, vertical = 6.dp)
         ) {
-            Text(
-                text = "Book Campus Peer Ride",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = DeepSlateTertiary
-            )
-            Text(
-                text = "Fast, eco-friendly transit between campus blocks",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            // Drag handle pill
+            Box(
+                modifier = Modifier
+                    .size(width = 44.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(9999.dp))
+                    .background(Color(0xFFCBD5E1))
+                    .align(Alignment.CenterHorizontally)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Pickup & Drop Inputs
+            // Pickup & Drop Summary
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
-                    // Pickup
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.MyLocation,
-                            contentDescription = "Pickup",
-                            tint = SolarGoldPrimary,
-                            modifier = Modifier.size(20.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF059669))
                         )
                         Spacer(modifier = Modifier.width(10.dp))
-                        OutlinedTextField(
-                            value = pickupLocation,
-                            onValueChange = onPickupChanged,
-                            placeholder = { Text("Pickup hostel / landmark") },
-                            modifier = Modifier.fillMaxWidth().testTag("pickup_input"),
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
-                            )
+                        Text(
+                            text = pickupLocation.ifBlank { CampusData.DEFAULT_PICKUP_ADDRESS },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = DeepSlateTertiary,
+                            maxLines = 1
                         )
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(Color(0xFFE2E8F0))
-                            .padding(vertical = 4.dp)
-                    )
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Dropoff
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = "Dropoff",
-                            tint = EcoGreenSecondary,
-                            modifier = Modifier.size(20.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEA580C))
                         )
                         Spacer(modifier = Modifier.width(10.dp))
-                        OutlinedTextField(
-                            value = dropLocation,
-                            onValueChange = onDropChanged,
-                            placeholder = { Text("Where to on campus?") },
-                            modifier = Modifier.fillMaxWidth().testTag("drop_input"),
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
-                            )
+                        Text(
+                            text = dropLocation.ifBlank { "Central Library (Kalam Block)" },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = DeepSlateTertiary,
+                            maxLines = 1
                         )
                     }
                 }
@@ -167,16 +143,16 @@ fun RideBookingSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Vehicle Selection
             Text(
-                text = "Choose Vehicle",
+                text = "Recommended Rides",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = DeepSlateTertiary
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Vehicle Choices List (Rapido style)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 CampusData.Vehicles.forEach { vehicle ->
                     val isSelected = vehicle.name == selectedVehicle.name
                     val price = if (splitFare) (vehicle.baseFare / splitCount).coerceAtLeast(5L) else vehicle.baseFare
@@ -188,12 +164,13 @@ fun RideBookingSheet(
                             .testTag("vehicle_${vehicle.name.lowercase().replace(" ", "_")}"),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isSelected) SolarGoldPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
+                            containerColor = if (isSelected) Color(0xFFFEF9C3) else Color.White
                         ),
                         border = androidx.compose.foundation.BorderStroke(
                             width = if (isSelected) 2.dp else 1.dp,
                             color = if (isSelected) SolarGoldPrimary else Color(0xFFE2E8F0)
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 3.dp else 0.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -205,34 +182,50 @@ fun RideBookingSheet(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(44.dp)
+                                        .size(46.dp)
                                         .clip(CircleShape)
                                         .background(if (isSelected) SolarGoldPrimary else Color(0xFFF1F5F9)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = when (vehicle.vehicleIcon) {
-                                            "bike" -> Icons.Default.PedalBike
-                                            "ebike" -> Icons.Default.ElectricBike
-                                            else -> Icons.Default.ElectricScooter
+                                            "auto" -> Icons.Default.ElectricRickshaw
+                                            "cab" -> Icons.Default.LocalTaxi
+                                            "parcel" -> Icons.Default.LocalShipping
+                                            "bike_lite" -> Icons.Default.ElectricBike
+                                            else -> Icons.Default.TwoWheeler
                                         },
                                         contentDescription = vehicle.name,
-                                        tint = if (isSelected) DeepSlateTertiary else DeepSlateTertiary.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(24.dp)
+                                        tint = DeepSlateTertiary,
+                                        modifier = Modifier.size(26.dp)
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = vehicle.name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = DeepSlateTertiary
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Color(0xFFF1F5F9)
+                                        ) {
+                                            Text(
+                                                text = "${vehicle.etaMinutes} mins",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = Color(0xFF64748B),
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
                                     Text(
-                                        text = vehicle.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = DeepSlateTertiary
-                                    )
-                                    Text(
-                                        text = "${vehicle.etaMinutes} mins away • ${vehicle.co2Saved}",
+                                        text = vehicle.tagline,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = EcoGreenSecondary
+                                        color = Color(0xFF64748B)
                                     )
                                 }
                             }
@@ -241,14 +234,15 @@ fun RideBookingSheet(
                                 Text(
                                     text = "₹$price",
                                     style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.ExtraBold,
                                     color = DeepSlateTertiary
                                 )
                                 if (splitFare) {
                                     Text(
-                                        text = "Split for $splitCount",
+                                        text = "Split ($splitCount)",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = EcoGreenSecondary
+                                        color = EcoGreenSecondary,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
@@ -259,7 +253,7 @@ fun RideBookingSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Split Fare Card
+            // Split Fare with Peer Classmates Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -275,7 +269,7 @@ fun RideBookingSheet(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Group,
-                                contentDescription = "Split Fare",
+                                contentDescription = null,
                                 tint = EcoGreenSecondary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -288,9 +282,9 @@ fun RideBookingSheet(
                                     color = DeepSlateTertiary
                                 )
                                 Text(
-                                    text = "Save money and reduce campus emissions",
+                                    text = "Share ride cost with campus classmates",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = Color(0xFF64748B)
                                 )
                             }
                         }
@@ -300,7 +294,7 @@ fun RideBookingSheet(
                             onCheckedChange = onSplitFareToggled,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
-                                checkedTrackColor = EcoGreenSecondary
+                                checkedTrackColor = SolarGoldPrimary
                             ),
                             modifier = Modifier.testTag("split_fare_switch")
                         )
@@ -346,27 +340,28 @@ fun RideBookingSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Primary Booking Button
+            // Primary Rapido Yellow "Book Bike" CTA Button
+            val finalPrice = if (splitFare) (selectedVehicle.baseFare / splitCount).coerceAtLeast(5L) else selectedVehicle.baseFare
             Button(
                 onClick = onConfirmBooking,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .testTag("confirm_booking_button"),
+                    .height(54.dp)
+                    .testTag("book_bike_button"),
                 shape = RoundedCornerShape(9999.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = SolarGoldPrimary,
                     contentColor = DeepSlateTertiary
                 ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 1.dp)
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Text(
-                    text = "Request Campus Pickup • ₹${if (splitFare) (selectedVehicle.baseFare / splitCount).coerceAtLeast(5L) else selectedVehicle.baseFare}",
+                    text = "Book ${selectedVehicle.name} • ₹$finalPrice",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp
                 )
             }
 

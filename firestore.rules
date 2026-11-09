@@ -27,13 +27,20 @@ service cloud.firestore {
       return data.userId is string && data.userId == request.auth.uid &&
              data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
              (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 150)) &&
-             data.collegeId is string && data.collegeId.size() >= 2 && data.collegeId.size() <= 50 &&
+             data.collegeId is string && data.collegeId.size() >= 2 && data.collegeId.size() <= 60 &&
              data.isStudentVerified is bool &&
              (!('avatarUrl' in data) || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 500)) &&
              (!('rating' in data) || data.rating is number) &&
              (!('ridesCount' in data) || data.ridesCount is int) &&
              (!('ecoPoints' in data) || data.ecoPoints is int) &&
-             (!('role' in data) || (data.role is string && (data.role == 'rider' || data.role == 'driver' || data.role == 'both'))) &&
+             (!('role' in data) || (data.role is string && (data.role == 'rider' || data.role == 'driver' || data.role == 'both' || data.role == 'passenger'))) &&
+             (!('universityName' in data) || data.universityName == null || (data.universityName is string && data.universityName.size() <= 120)) &&
+             (!('faculty' in data) || data.faculty == null || (data.faculty is string && data.faculty.size() <= 120)) &&
+             (!('residency' in data) || data.residency == null || (data.residency is string && data.residency.size() <= 120)) &&
+             (!('phoneNumber' in data) || data.phoneNumber == null || (data.phoneNumber is string && data.phoneNumber.size() <= 30)) &&
+             (!('vehicleModel' in data) || data.vehicleModel == null || (data.vehicleModel is string && data.vehicleModel.size() <= 80)) &&
+             (!('vehiclePlate' in data) || data.vehiclePlate == null || (data.vehiclePlate is string && data.vehiclePlate.size() <= 40)) &&
+             (!('isProfileComplete' in data) || data.isProfileComplete is bool) &&
              data.createdAt is timestamp && data.createdAt <= request.time &&
              (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is timestamp && data.updatedAt <= request.time));
     }
@@ -63,14 +70,14 @@ service cloud.firestore {
 
     // 1. Users collection: user profiles
     match /users/{userId} {
-      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow get: if isSignedIn() && isValidId(userId);
       allow list: if isSignedIn() && request.auth.uid == userId;
 
       allow create: if isSignedIn() && isValidId(userId) &&
                        request.auth.uid == userId &&
                        incoming().userId == request.auth.uid &&
                        incoming().keys().hasAll(['userId', 'displayName', 'collegeId', 'isStudentVerified', 'createdAt']) &&
-                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'collegeId', 'isStudentVerified', 'avatarUrl', 'rating', 'ridesCount', 'ecoPoints', 'role', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'collegeId', 'isStudentVerified', 'avatarUrl', 'rating', 'ridesCount', 'ecoPoints', 'role', 'universityName', 'faculty', 'residency', 'phoneNumber', 'vehicleModel', 'vehiclePlate', 'isProfileComplete', 'createdAt', 'updatedAt']) &&
                        isValidUserProfile(incoming());
 
       allow update: if isSignedIn() && isValidId(userId) &&
@@ -78,20 +85,20 @@ service cloud.firestore {
                        incoming().userId == existing().userId &&
                        incoming().createdAt == existing().createdAt &&
                        isValidUserProfile(incoming()) &&
-                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'collegeId', 'isStudentVerified', 'avatarUrl', 'rating', 'ridesCount', 'ecoPoints', 'role', 'updatedAt']);
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'collegeId', 'isStudentVerified', 'avatarUrl', 'rating', 'ridesCount', 'ecoPoints', 'role', 'universityName', 'faculty', 'residency', 'phoneNumber', 'vehicleModel', 'vehiclePlate', 'isProfileComplete', 'updatedAt']);
 
       allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
     }
 
     // 2. Rides collection: student campus mobility trips
     match /rides/{rideId} {
-      allow get: if isSignedIn() && isValidId(rideId) &&
-                    (resource.data.userId == request.auth.uid ||
-                     (resource.data.riderId != null && resource.data.riderId == request.auth.uid) ||
-                     (resource.data.driverId != null && resource.data.driverId == request.auth.uid));
+      allow get: if isSignedIn() && isValidId(rideId);
 
-      // Client queries MUST filter by whereEqualTo("userId", uid)
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Client queries: either user's own rides, or driver querying assigned rides, or driver discovering open requests
+      allow list: if isSignedIn() &&
+                     (resource.data.userId == request.auth.uid ||
+                      (resource.data.driverId != null && resource.data.driverId == request.auth.uid) ||
+                      resource.data.status == 'requested');
 
       allow create: if isSignedIn() && isValidId(rideId) &&
                        incoming().userId == request.auth.uid &&
@@ -100,14 +107,30 @@ service cloud.firestore {
                        isValidRide(incoming());
 
       allow update: if isSignedIn() && isValidId(rideId) &&
-                       (resource.data.userId == request.auth.uid ||
-                        (resource.data.driverId != null && resource.data.driverId == request.auth.uid)) &&
                        incoming().userId == existing().userId &&
                        incoming().createdAt == existing().createdAt &&
                        isValidRide(incoming()) &&
+                       (
+                         // Case A: Passenger cancelling or updating
+                         resource.data.userId == request.auth.uid ||
+                         // Case B: Assigned driver updating status (e.g. in_route, completed)
+                         (resource.data.driverId != null && resource.data.driverId == request.auth.uid) ||
+                         // Case C: Unassigned driver claiming an open request
+                         (existing().status == 'requested' && (!('driverId' in existing()) || existing().driverId == null) && incoming().driverId == request.auth.uid && incoming().status == 'accepted')
+                       ) &&
                        incoming().diff(existing()).affectedKeys().hasOnly(['driverId', 'driverName', 'driverAvatar', 'vehicleType', 'vehiclePlate', 'status', 'etaMinutes', 'helmetVerified', 'splitFare', 'splitCount', 'updatedAt']);
 
       allow delete: if isSignedIn() && isValidId(rideId) && resource.data.userId == request.auth.uid;
+    }
+
+    // 3. Emergency alerts collection for SOS broadcasts
+    match /emergency_alerts/{alertId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(alertId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().createdAt <= request.time;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }
